@@ -9,10 +9,15 @@
         android:label="Water Sort Puzzle"
         android:icon="@drawable/app_icon"
         android:roundIcon="@drawable/app_icon"
-        android:theme="@android:style/Theme.NoTitleBar.Fullscreen"
+        android:theme="@android:style/Theme.Light.NoTitleBar.Fullscreen"
         android:hardwareAccelerated="true">
 
-        <!-- Official Google Sample AdMob App ID -->
+        <!-- Google Play Services Version (Crash Prevention) -->
+        <meta-data
+            android:name="com.google.android.gms.version"
+            android:value="@integer/google_play_services_version" />
+
+        <!-- Sample AdMob App ID -->
         <meta-data
             android:name="com.google.android.gms.ads.APPLICATION_ID"
             android:value="ca-app-pub-3940256099942544~3347511713"/>
@@ -20,6 +25,7 @@
         <activity
             android:name=".MainActivity"
             android:exported="true"
+            android:screenOrientation="portrait"
             android:configChanges="orientation|screenSize|screenLayout|keyboardHidden">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
