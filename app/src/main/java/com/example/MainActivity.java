@@ -27,35 +27,33 @@ public class MainActivity extends Activity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        try {
-            webView = new WebView(this);
-            setContentView(webView);
+        // 1. WebView banayein aur turant screen par show karein
+        webView = new WebView(this);
+        setContentView(webView);
 
-            WebSettings settings = webView.getSettings();
-            settings.setJavaScriptEnabled(true);
-            settings.setDomStorageEnabled(true);
-            settings.setAllowFileAccess(true);
-            settings.setDatabaseEnabled(true);
-            settings.setUseWideViewPort(true);
-            settings.setLoadWithOverviewMode(true);
-            settings.setMediaPlaybackRequiresUserGesture(false);
+        WebSettings settings = webView.getSettings();
+        settings.setJavaScriptEnabled(true);
+        settings.setDomStorageEnabled(true);
+        settings.setAllowFileAccess(true);
+        settings.setDatabaseEnabled(true);
+        settings.setUseWideViewPort(true);
+        settings.setLoadWithOverviewMode(true);
+        settings.setMediaPlaybackRequiresUserGesture(false);
 
-            webView.setWebViewClient(new WebViewClient());
-            webView.setWebChromeClient(new WebChromeClient());
-            webView.addJavascriptInterface(new WebAppInterface(), "AndroidBridge");
+        webView.setWebViewClient(new WebViewClient());
+        webView.setWebChromeClient(new WebChromeClient());
+        webView.addJavascriptInterface(new WebAppInterface(), "AndroidBridge");
 
-            webView.loadUrl("file:///android_asset/index.html");
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
+        // Game load karein
+        webView.loadUrl("file:///android_asset/index.html");
 
-        // Initialize Ads safely in background
-        new Thread(() -> {
+        // 2. AdMob ko safely 2 second ke delay ke baad background me init karein
+        webView.postDelayed(() -> {
             try {
-                MobileAds.initialize(MainActivity.this, initializationStatus -> {});
-                runOnUiThread(this::loadRewardedAd);
-            } catch (Exception ignored) {}
-        }).start();
+                MobileAds.initialize(getApplicationContext(), initializationStatus -> {});
+                loadRewardedAd();
+            } catch (Throwable ignored) {}
+        }, 2000);
     }
 
     private void loadRewardedAd() {
@@ -76,7 +74,7 @@ public class MainActivity extends Activity {
                     isLoadingAd = false;
                 }
             });
-        } catch (Exception e) {
+        } catch (Throwable t) {
             isLoadingAd = false;
         }
     }
@@ -86,23 +84,30 @@ public class MainActivity extends Activity {
         public void showRewardedAd() {
             runOnUiThread(() -> {
                 if (rewardedAd != null) {
-                    rewardedAd.show(MainActivity.this, rewardItem -> {
-                        runOnUiThread(() -> {
-                            if (webView != null) {
-                                webView.evaluateJavascript("if(window.onAdRewardGranted) window.onAdRewardGranted();", null);
-                            }
+                    try {
+                        rewardedAd.show(MainActivity.this, rewardItem -> {
+                            runOnUiThread(() -> {
+                                if (webView != null) {
+                                    webView.evaluateJavascript("if(window.onAdRewardGranted) window.onAdRewardGranted();", null);
+                                }
+                            });
                         });
-                    });
-                    rewardedAd = null;
-                    loadRewardedAd();
-                } else {
-                    // Fallback to in-game reward if ad isn't loaded
-                    if (webView != null) {
-                        webView.evaluateJavascript("if(window.onAdRewardGranted) window.onAdRewardGranted();", null);
+                        rewardedAd = null;
+                        loadRewardedAd();
+                    } catch (Throwable t) {
+                        giveRewardFallback();
                     }
+                } else {
+                    giveRewardFallback();
                     loadRewardedAd();
                 }
             });
+        }
+
+        private void giveRewardFallback() {
+            if (webView != null) {
+                webView.evaluateJavascript("if(window.onAdRewardGranted) window.onAdRewardGranted();", null);
+            }
         }
     }
 
