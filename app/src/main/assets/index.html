@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Water Sort Puzzle</title>
+  <style>
+    * { box-sizing: border-box; user-select: none; -webkit-user-select: none; margin: 0; padding: 0; }
+    body {
+      background: radial-gradient(circle at top, #1e293b, #0f172a);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      color: #fff;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      overflow: hidden;
+    }
+    header {
+      padding: 12px 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: rgba(15, 23, 42, 0.7);
+    }
+    .level-info { font-size: 1.25rem; font-weight: 700; }
+    .actions { display: flex; gap: 8px; }
+    .btn {
+      background: #334155;
+      color: #fff;
+      border: 1px solid #475569;
+      padding: 8px 12px;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .btn-ad { background: #f59e0b; border-color: #d97706; color: #000; }
+    #game-container {
+      flex: 1;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      align-content: center;
+      gap: 20px 14px;
+      padding: 20px;
+    }
+    .tube {
+      width: 48px;
+      height: 160px;
+      border: 3px solid rgba(255, 255, 255, 0.6);
+      border-top: none;
+      border-radius: 0 0 24px 24px;
+      background: rgba(255, 255, 255, 0.05);
+      cursor: pointer;
+      display: flex;
+      flex-direction: column-reverse;
+      padding-bottom: 2px;
+      transition: transform 0.2s ease, border-color 0.2s ease;
+    }
+    .tube.selected {
+      transform: translateY(-16px);
+      border-color: #38bdf8;
+      box-shadow: 0 8px 16px rgba(56, 189, 248, 0.3);
+    }
+    .liquid { width: 100%; height: 25%; }
+    .liquid:first-child { border-radius: 0 0 18px 18px; }
+    .overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.85);
+      display: none;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      gap: 20px;
+      z-index: 99;
+    }
+    .overlay.active { display: flex; }
+    .overlay h2 { font-size: 2rem; color: #38bdf8; }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="level-info" id="level-display">Level 1</div>
+    <div class="actions">
+      <button class="btn" id="btn-restart">Restart</button>
+      <button class="btn btn-ad" id="btn-undo">Undo 📺</button>
+      <button class="btn btn-ad" id="btn-extra">+Tube 📺</button>
+    </div>
+  </header>
+
+  <main id="game-container"></main>
+
+  <div class="overlay" id="win-modal">
+    <h2>Level Complete! 🎉</h2>
+    <button class="btn btn-ad" style="padding: 12px 24px; font-size: 1.1rem;" id="btn-next">Next Level</button>
+  </div>
+
+  <script>
+    const COLORS = ['#ef4444', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#06b6d4'];
+    let currentLevel = 1;
+    let tubes = [];
+    let selectedTubeIndex = null;
+    let history = [];
+    let extraTubeAdded = false;
+    let pendingRewardType = null;
+
+    const gameContainer = document.getElementById('game-container');
+    const levelDisplay = document.getElementById('level-display');
+    const winModal = document.getElementById('win-modal');
+
+    function initLevel(lvl) {
+      currentLevel = lvl;
+      levelDisplay.innerText = `Level ${currentLevel}`;
+      history = [];
+      extraTubeAdded = false;
+      selectedTubeIndex = null;
+      winModal.classList.remove('active');
+
+      const colorCount = Math.min(3 + lvl, COLORS.length);
+      const activeColors = COLORS.slice(0, colorCount);
+      let pool = [];
+      activeColors.forEach(c => pool.push(c, c, c, c));
+      pool.sort(() => Math.random() - 0.5);
+
+      tubes = [];
+      for (let i = 0; i < colorCount; i++) {
+        tubes.push(pool.slice(i * 4, (i + 1) * 4));
+      }
+      tubes.push([]);
+      tubes.push([]);
+      render();
+    }
+
+    function render() {
+      gameContainer.innerHTML = '';
+      tubes.forEach((tube, idx) => {
+        const tubeEl = document.createElement('div');
+        tubeEl.className = 'tube' + (selectedTubeIndex === idx ? ' selected' : '');
+        tubeEl.onclick = () => handleTubeClick(idx);
+
+        tube.forEach(color => {
+          const liquid = document.createElement('div');
+          liquid.className = 'liquid';
+          liquid.style.backgroundColor = color;
+          tubeEl.appendChild(liquid);
+        });
+
+        gameContainer.appendChild(tubeEl);
+      });
+    }
+
+    function handleTubeClick(idx) {
+      if (selectedTubeIndex === null) {
+        if (tubes[idx].length > 0) {
+          selectedTubeIndex = idx;
+          render();
+        }
+      } else {
+        if (selectedTubeIndex === idx) {
+          selectedTubeIndex = null;
+          render();
+        } else {
+          moveWater(selectedTubeIndex, idx);
+        }
+      }
+    }
+
+    function moveWater(fromIdx, toIdx) {
+      const fromTube = tubes[fromIdx];
+      const toTube = tubes[toIdx];
+
+      if (fromTube.length === 0 || toTube.length >= 4) {
+        selectedTubeIndex = null;
+        render();
+        return;
+      }
+
+      const moveColor = fromTube[fromTube.length - 1];
+      if (toTube.length > 0 && toTube[toTube.length - 1] !== moveColor) {
+        selectedTubeIndex = null;
+        render();
+        return;
+      }
+
+      history.push(JSON.parse(JSON.stringify(tubes)));
+
+      while (fromTube.length > 0 && fromTube[fromTube.length - 1] === moveColor && toTube.length < 4) {
+        toTube.push(fromTube.pop());
+      }
+
+      selectedTubeIndex = null;
+      render();
+      checkWin();
+    }
+
+    function checkWin() {
+      const isWon = tubes.every(tube => {
+        if (tube.length === 0) return true;
+        if (tube.length !== 4) return false;
+        return tube.every(c => c === tube[0]);
+      });
+
+      if (isWon) {
+        setTimeout(() => { winModal.classList.add('active'); }, 300);
+      }
+    }
+
+    // Call Native AdMob
+    function triggerAd(rewardType) {
+      pendingRewardType = rewardType;
+      if (window.AndroidBridge && typeof window.AndroidBridge.showRewardedAd === 'function') {
+        window.AndroidBridge.showRewardedAd();
+      } else {
+        // Fallback agar seedha browser me run ho raha ho
+        onAdRewardGranted();
+      }
+    }
+
+    // Native Java callback
+    window.onAdRewardGranted = function() {
+      if (pendingRewardType === 'extra_tube') {
+        tubes.push([]);
+        extraTubeAdded = true;
+        render();
+      } else if (pendingRewardType === 'undo') {
+        if (history.length > 0) {
+          tubes = history.pop();
+          selectedTubeIndex = null;
+          render();
+        }
+      }
+      pendingRewardType = null;
+    };
+
+    document.getElementById('btn-undo').onclick = () => {
+      if (history.length === 0) return;
+      triggerAd('undo');
+    };
+
+    document.getElementById('btn-extra').onclick = () => {
+      if (extraTubeAdded) return;
+      triggerAd('extra_tube');
+    };
+
+    document.getElementById('btn-restart').onclick = () => initLevel(currentLevel);
+    document.getElementById('btn-next').onclick = () => initLevel(currentLevel + 1);
+
+    initLevel(1);
+  </script>
+</body>
+</html>
