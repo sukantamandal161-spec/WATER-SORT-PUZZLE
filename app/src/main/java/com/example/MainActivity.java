@@ -4,6 +4,7 @@ import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.os.Bundle;
 import android.webkit.JavascriptInterface;
+import android.webkit.WebChromeClient;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
@@ -26,8 +27,10 @@ public class MainActivity extends Activity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        MobileAds.initialize(this, initializationStatus -> {});
-        loadRewardedAd();
+        try {
+            MobileAds.initialize(this, initializationStatus -> {});
+            loadRewardedAd();
+        } catch (Exception ignored) {}
 
         webView = new WebView(this);
         setContentView(webView);
@@ -42,6 +45,7 @@ public class MainActivity extends Activity {
         settings.setMediaPlaybackRequiresUserGesture(false);
 
         webView.setWebViewClient(new WebViewClient());
+        webView.setWebChromeClient(new WebChromeClient());
         webView.addJavascriptInterface(new WebAppInterface(), "AndroidBridge");
 
         webView.loadUrl("file:///android_asset/index.html");
@@ -50,20 +54,24 @@ public class MainActivity extends Activity {
     private void loadRewardedAd() {
         if (rewardedAd != null || isLoadingAd) return;
         isLoadingAd = true;
-        AdRequest adRequest = new AdRequest.Builder().build();
-        RewardedAd.load(this, AD_UNIT_ID, adRequest, new RewardedAdLoadCallback() {
-            @Override
-            public void onAdLoaded(@NonNull RewardedAd ad) {
-                rewardedAd = ad;
-                isLoadingAd = false;
-            }
+        try {
+            AdRequest adRequest = new AdRequest.Builder().build();
+            RewardedAd.load(this, AD_UNIT_ID, adRequest, new RewardedAdLoadCallback() {
+                @Override
+                public void onAdLoaded(@NonNull RewardedAd ad) {
+                    rewardedAd = ad;
+                    isLoadingAd = false;
+                }
 
-            @Override
-            public void onAdFailedToLoad(@NonNull LoadAdError loadAdError) {
-                rewardedAd = null;
-                isLoadingAd = false;
-            }
-        });
+                @Override
+                public void onAdFailedToLoad(@NonNull LoadAdError loadAdError) {
+                    rewardedAd = null;
+                    isLoadingAd = false;
+                }
+            });
+        } catch (Exception e) {
+            isLoadingAd = false;
+        }
     }
 
     public class WebAppInterface {
@@ -88,7 +96,7 @@ public class MainActivity extends Activity {
 
     @Override
     public void onBackPressed() {
-        if (webView.canGoBack()) {
+        if (webView != null && webView.canGoBack()) {
             webView.goBack();
         } else {
             super.onBackPressed();
