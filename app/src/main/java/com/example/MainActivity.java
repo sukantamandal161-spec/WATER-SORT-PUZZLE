@@ -53,12 +53,6 @@ public class MainActivity extends Activity {
         AdRequest adRequest = new AdRequest.Builder().build();
         RewardedAd.load(this, AD_UNIT_ID, adRequest, new RewardedAdLoadCallback() {
             @Override
-            public void patrioticAdLoaded(@NonNull RewardedAd ad) {
-                rewardedAd = ad;
-                isLoadingAd = false;
-            }
-
-            @Override
             public void onAdLoaded(@NonNull RewardedAd ad) {
                 rewardedAd = ad;
                 isLoadingAd = false;
