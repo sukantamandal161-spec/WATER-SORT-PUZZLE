@@ -28,27 +28,34 @@ public class MainActivity extends Activity {
         super.onCreate(savedInstanceState);
 
         try {
-            MobileAds.initialize(this, initializationStatus -> {});
-            loadRewardedAd();
-        } catch (Exception ignored) {}
+            webView = new WebView(this);
+            setContentView(webView);
 
-        webView = new WebView(this);
-        setContentView(webView);
+            WebSettings settings = webView.getSettings();
+            settings.setJavaScriptEnabled(true);
+            settings.setDomStorageEnabled(true);
+            settings.setAllowFileAccess(true);
+            settings.setDatabaseEnabled(true);
+            settings.setUseWideViewPort(true);
+            settings.setLoadWithOverviewMode(true);
+            settings.setMediaPlaybackRequiresUserGesture(false);
 
-        WebSettings settings = webView.getSettings();
-        settings.setJavaScriptEnabled(true);
-        settings.setDomStorageEnabled(true);
-        settings.setAllowFileAccess(true);
-        settings.setDatabaseEnabled(true);
-        settings.setUseWideViewPort(true);
-        settings.setLoadWithOverviewMode(true);
-        settings.setMediaPlaybackRequiresUserGesture(false);
+            webView.setWebViewClient(new WebViewClient());
+            webView.setWebChromeClient(new WebChromeClient());
+            webView.addJavascriptInterface(new WebAppInterface(), "AndroidBridge");
 
-        webView.setWebViewClient(new WebViewClient());
-        webView.setWebChromeClient(new WebChromeClient());
-        webView.addJavascriptInterface(new WebAppInterface(), "AndroidBridge");
+            webView.loadUrl("file:///android_asset/index.html");
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
 
-        webView.loadUrl("file:///android_asset/index.html");
+        // Initialize Ads safely in background
+        new Thread(() -> {
+            try {
+                MobileAds.initialize(MainActivity.this, initializationStatus -> {});
+                runOnUiThread(this::loadRewardedAd);
+            } catch (Exception ignored) {}
+        }).start();
     }
 
     private void loadRewardedAd() {
@@ -81,13 +88,18 @@ public class MainActivity extends Activity {
                 if (rewardedAd != null) {
                     rewardedAd.show(MainActivity.this, rewardItem -> {
                         runOnUiThread(() -> {
-                            webView.evaluateJavascript("if(window.onAdRewardGranted) window.onAdRewardGranted();", null);
+                            if (webView != null) {
+                                webView.evaluateJavascript("if(window.onAdRewardGranted) window.onAdRewardGranted();", null);
+                            }
                         });
                     });
                     rewardedAd = null;
                     loadRewardedAd();
                 } else {
-                    webView.evaluateJavascript("if(window.onAdRewardGranted) window.onAdRewardGranted();", null);
+                    // Fallback to in-game reward if ad isn't loaded
+                    if (webView != null) {
+                        webView.evaluateJavascript("if(window.onAdRewardGranted) window.onAdRewardGranted();", null);
+                    }
                     loadRewardedAd();
                 }
             });
