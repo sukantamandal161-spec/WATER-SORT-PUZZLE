@@ -1,7 +1,6 @@
 package com.example.watersort;
 
 import android.annotation.SuppressLint;
-import android.app.Activity;
 import android.os.Bundle;
 import android.webkit.JavascriptInterface;
 import android.webkit.WebChromeClient;
@@ -9,13 +8,14 @@ import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import androidx.annotation.NonNull;
+import androidx.appcompat.app.AppCompatActivity;
 import com.google.android.gms.ads.AdRequest;
 import com.google.android.gms.ads.LoadAdError;
 import com.google.android.gms.ads.MobileAds;
 import com.google.android.gms.ads.rewarded.RewardedAd;
 import com.google.android.gms.ads.rewarded.RewardedAdLoadCallback;
 
-public class MainActivity extends Activity {
+public class MainActivity extends AppCompatActivity {
 
     private WebView webView;
     private RewardedAd rewardedAd;
@@ -27,7 +27,7 @@ public class MainActivity extends Activity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        // 1. WebView banayein aur turant screen par show karein
+        // WebView setup
         webView = new WebView(this);
         setContentView(webView);
 
@@ -44,16 +44,16 @@ public class MainActivity extends Activity {
         webView.setWebChromeClient(new WebChromeClient());
         webView.addJavascriptInterface(new WebAppInterface(), "AndroidBridge");
 
-        // Game load karein
+        // Game load assets
         webView.loadUrl("file:///android_asset/index.html");
 
-        // 2. AdMob ko safely 2 second ke delay ke baad background me init karein
+        // AdMob load delay
         webView.postDelayed(() -> {
             try {
-                MobileAds.initialize(getApplicationContext(), initializationStatus -> {});
+                MobileAds.initialize(this, initializationStatus -> {});
                 loadRewardedAd();
             } catch (Throwable ignored) {}
-        }, 2000);
+        }, 1500);
     }
 
     private void loadRewardedAd() {
@@ -95,16 +95,16 @@ public class MainActivity extends Activity {
                         rewardedAd = null;
                         loadRewardedAd();
                     } catch (Throwable t) {
-                        giveRewardFallback();
+                        grantReward();
                     }
                 } else {
-                    giveRewardFallback();
+                    grantReward();
                     loadRewardedAd();
                 }
             });
         }
 
-        private void giveRewardFallback() {
+        private void grantReward() {
             if (webView != null) {
                 webView.evaluateJavascript("if(window.onAdRewardGranted) window.onAdRewardGranted();", null);
             }
