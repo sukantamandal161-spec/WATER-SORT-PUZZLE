@@ -1,0 +1,2 @@
+rootProject.name = "Water Sort Puzzle"
+include ':app'
